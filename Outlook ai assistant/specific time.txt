@@ -1,0 +1,14 @@
+	east_tz = pytz.timezone('EST')
+        today = datetime.now(east_tz).date()
+        tomorrow = today + timedelta(days=1)
+        
+        
+        start_time = today.isoformat() + "T00:00:00Z"
+        end_time = tomorrow.isoformat() + "T00:00:00Z"
+        calendar_url = f"{self.ENDPOINT}/me/calendarview?startDateTime={start_time}&endDateTime={end_time}"
+
+
+
+        tool_call = response.choices[0].message.tool_calls[0]
+        if tool_call:
+            arguments = json.loads(tool_call['function']['arguments'])

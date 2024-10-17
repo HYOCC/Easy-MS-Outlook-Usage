@@ -1,0 +1,13 @@
+
+-Work on categories and being able to assign colors to the event
+
+-Work on adding the todo function as well 
+
+-Add speech to text function 
+    -Learn how ot use jQuery so page doesnt refresh whenever the mic button is pressed but the function is still sent over
+
+
+
+
+
+-Learn how ot use data base and create a log in system
