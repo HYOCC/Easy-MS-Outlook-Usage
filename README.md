@@ -1,3 +1,2 @@
 # Outlook-chat-AI
 
-Fun
