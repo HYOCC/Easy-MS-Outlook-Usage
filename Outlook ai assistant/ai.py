@@ -1,17 +1,20 @@
 from openai import OpenAI
 import webview
 import threading
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from asyncio import run as runs
 from get_data import run_data, create_event, delete_event, get_events, Create_event_with_recurrence, get_categories
 from datetime import datetime
 from json import loads, dumps
+import speech_recognition as sr
 
 app = Flask(__name__)
 client = OpenAI(
     base_url="https://api.together.xyz/v1",
-    api_key='OMITTED'
+    api_key='dd3959d6ed9e934c0eb3264586456495f25d9ce07426af34ac98fcd049c24043'
 )
+
+recognizer = sr.Recognizer()
 
 category_colors = {
     "Red": "Preset0",
@@ -79,8 +82,8 @@ Deleting events:
 -get the event ID from a list of event that is given to you and always use the latest added one, the message starts with \'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\' and use delete_event function
 -If the user asks to remove a event that occurs every specific day, just get the id of the that event that pops up first and use that.
 -Require event name from user
--If event doesn't exist, inform user
--If event name not provided, ask for clarification
+-If event doesn't exist, inform user before proceeding to delete the closest one named after it.
+-If event name is not provided, ask for clarification
 -Don't select events randomly
 -Response format:
 -For viewing: HTML only, no explanations
@@ -261,12 +264,30 @@ def user_input():
         return render_template('chatbox.html', ai_response=response)
     return render_template('chatbox.html')
 
-
-
-
 @app.route('/voice',  methods=['POST'])
 def user_voice():
-    pass 
+    mic = False 
+    if request.json['action'] == 'button_clicked':
+        mic = not(mic) 
+
+    while mic:
+        text = ''
+        with sr.Microphone() as source:
+            print("Listening...")
+            audio = recognizer.listen(source)
+        try:
+            text = recognizer.recognize_google(audio)
+            print(f"You said: {text}")
+        except sr.UnknownValueError:
+            print("Sorry, I couldn't understand that.")
+        except sr.RequestError:
+            print("Sorry, there was an error processing your request.")
+        if not(text):
+            continue 
+        mic = False 
+    return jsonify({'response': text})
+    
+        
 
 
 
@@ -277,8 +298,6 @@ async def run():
     message.append({'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'})
     categories = get_categories()
     message.append({'role': 'system', 'content':f'DONT READ BELOW unless trying to get the existing categories that the user has\n {categories}'})
-    
-    
     app_thread = threading.Thread(target=web_start)
     app_thread.start()
     create_webview()

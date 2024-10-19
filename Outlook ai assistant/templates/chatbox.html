@@ -62,7 +62,7 @@
     </style>
 </head>
 <body>
-    <button type='submit' style='position:absolute'>mic</button>
+    <button type="button" id = 'mic_on_off' style='position:absolute'>mic</button>
  
 
 
@@ -92,13 +92,21 @@
         document.getElementById('user_input').value = document.getElementById('chat_text').value 
         document.getElementById('send').submit() 
     });
+
+    
     // Use fetch API to get the info that mic has been pressed without the page refreshing 
-    $(document).ready(function(){
-        $('#mic_off_on').on('submit', function(){
-            $.ajax({
-                url: '/mic_on_off',
-                type: 'POST',
-            })
+    document.getElementById('mic_on_off').addEventListener('click', function(){
+        fetch('/voice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({action: 'button_clicked'})
+        })
+        .then(response => response.json())
+        .then(data =>{
+            document.getElementById('chat_text').value = data.response;
+            document.getElementById('send_button').click();
         })
     })
 
