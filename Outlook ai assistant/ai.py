@@ -11,7 +11,7 @@ import speech_recognition as sr
 app = Flask(__name__)
 client = OpenAI(
     base_url="https://api.together.xyz/v1",
-    api_key='dd3959d6ed9e934c0eb3264586456495f25d9ce07426af34ac98fcd049c24043'
+    api_key='OMITTED'
 )
 
 recognizer = sr.Recognizer()
