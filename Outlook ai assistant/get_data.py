@@ -56,7 +56,7 @@ def get_events(start_date_time=None, end_date_time=None):
     return events 
     
     
-def create_event(event_name, start_date, end_date, start_time, end_time, location_name=None, categories=None, notes = None, color = None):
+def create_event(event_name, start_date, end_date, start_time, end_time, location_name=None, categories=None, notes = None):
         calendar_url = 'https://graph.microsoft.com/v1.0/me/events'
         request_body = {
             'subject': f'{event_name}',
@@ -77,19 +77,15 @@ def create_event(event_name, start_date, end_date, start_time, end_time, locatio
             request_body['categories'] = []
             request_body['categories'].append(categories)
             
-            
+                
         if notes:
             request_body['body'] = {}
             request_body['body']['contentType'] = 'HTML'
             request_body['body']['content'] = f'{notes}'
             
-        
-        
-        
-        
         response = requests.post(calendar_url, json=request_body, headers=headers)
         if response.status_code == 201:
-            return 'Event created successfully!'
+            return 'Event created successfully!', response
             
         else:
             return 'Event not created successfully'
@@ -101,7 +97,7 @@ def delete_event(event_id):
     print(response.status_code)
     return 'success in deleting event' if response.status_code == 204 else 'Not successful'
 
-def Create_event_with_recurrence(event_name, start_date, end_date, start_time, end_time, range, interval, pattern_type, end_type, location_name=None, categories=None, daysOfWeek=None, dayOfMonth = None):
+def Create_event_with_recurrence(event_name, start_date, end_date, start_time, end_time, range, interval, pattern_type, end_type, location_name=None, categories=None, daysOfWeek=None, dayOfMonth = None, numberOfOccurrences = None):
     
         calendar_url = 'https://graph.microsoft.com/v1.0/me/events'
         request_body = {
@@ -125,7 +121,7 @@ def Create_event_with_recurrence(event_name, start_date, end_date, start_time, e
                 }
             }
         }
-    
+
         if location_name:
             request_body['location'] = {}
             request_body['location']['displayName'] = location_name
@@ -145,7 +141,10 @@ def Create_event_with_recurrence(event_name, start_date, end_date, start_time, e
                 request_body['recurrence']['range']['endDate'] = range[1] 
         except: 
             pass 
-
+        
+        if numberOfOccurrences:
+            request_body['recurrence']['range']['numberOfOccurrences'] = numberOfOccurrences
+        
         print(request_body)
         response = requests.post(calendar_url, json=request_body, headers=headers)
         
@@ -170,7 +169,9 @@ def get_categories():
         return categories
     else:
         return 'Not successful'
-            
+
+
+#Add a create category function
  
 user = Account(azure_settings)
 

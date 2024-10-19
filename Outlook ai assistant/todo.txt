@@ -1,5 +1,5 @@
 
--Work on categories and being able to assign colors to the event
+-
 
 -Work on adding the todo function as well 
 
