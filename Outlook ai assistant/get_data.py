@@ -149,10 +149,10 @@ def Create_event_with_recurrence(event_name, start_date, end_date, start_time, e
         response = requests.post(calendar_url, json=request_body, headers=headers)
         
         if response.status_code == 201:
-            return 'Event created successfully!'
+            return 'Event created successfully!', response
             
         else:
-            return 'Event not created successfully'
+            return 'Event not created successfully', None 
         
         
         
@@ -169,6 +169,22 @@ def get_categories():
         return categories
     else:
         return 'Not successful'
+
+
+#Testing to create categories 
+def create_categories(color, display_name):
+    global headers 
+    Create_category_url = 'https://graph.microsoft.com/v1.0/me/outlook/masterCategories'
+    body_type = {
+        'color' : color ,
+        'displayName': display_name 
+    }
+    
+    Response = requests.get(Create_category_url, headers = body_type)
+    
+    if Response.status_code == 201:
+        return 'Successful'
+    return 'Not successful'
 
 
 #Add a create category function

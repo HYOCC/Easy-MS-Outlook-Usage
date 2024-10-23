@@ -3,8 +3,7 @@
 
 -Work on adding the todo function as well 
 
--Add speech to text function 
-    -Learn how ot use jQuery so page doesnt refresh whenever the mic button is pressed but the function is still sent over
+-Make a toggle off and on for mic
 
 
 

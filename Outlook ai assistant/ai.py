@@ -10,11 +10,12 @@ import speech_recognition as sr
 
 app = Flask(__name__)
 client = OpenAI(
-    base_url="https://api.together.xyz/v1",
-    api_key='OMITTED'
+    base_url="https://api.perplexity.ai/chat/completions",
+    api_key='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'
 )
 
 recognizer = sr.Recognizer()
+recognizer.pause_threshold = 0.5
 
 category_colors = {
     "Red": "Preset0",
@@ -47,7 +48,7 @@ category_colors = {
 global_events = ''
 
 default_ai_content = '''
-You are a calendar assistant AI that can access external functions. 
+You are a calendar assistant AI that can access external functions. Your are like a butler
 
 General: 
 1. Use military time (01:00:00 to 23:59:59).
@@ -56,8 +57,10 @@ General:
 4. Format output in readable HTML with white text and in fun font, dont change background color
 5. You can use more than one function
 
-
+DONT READ BELOW unless trying to view event
 Viewing events:
+-DONT show events that already occurred
+-For repeating events, only show the next upcoming event. repeating events are as specified, same time. ex. both are 2pm to 5pm, put the next upcoming one only
 -Use get_events function
 -Format in readable HTML, each event should be its own line, put it into table/column for better readability
 -Use AM/PM format with date
@@ -66,18 +69,17 @@ Viewing events:
 -If no events, respond creatively
 -Omit event ID and seriesmasterID 
 -For upcoming events, show from current date/time to the next 
--For repeating events, only show the next upcoming event. repeating events are as specified, same time and same day of the week. ex. both are monday and 2pm to 5pm, put the next upcooming one only
 -If the starting date/time is not specificed, ALWAYS go from the current date time 
 -Include what day of the week it is
 
-Adding events:
+DONT READ BELOW unless trying to add events
 -Use create_event function if user doesnt want the event to repeat. Use Create_event_with_recurrence if the user wants the event to repeat. 
 -Respond to various phrasings (e.g., "create an event", "add an event")
 -NEED specified time
 
 
 
-DONT read below unless trying to delete the event
+DONT READ BELOW unless trying to delete the event
 Deleting events:
 -get the event ID from a list of event that is given to you and always use the latest added one, the message starts with \'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\' and use delete_event function
 -If the user asks to remove a event that occurs every specific day, just get the id of the that event that pops up first and use that.
@@ -155,7 +157,7 @@ tools = [
                             'end_date': {'type': 'string', 'description': 'The event\'s end date in year-month-date format.'},
                             'start_time': {'type': 'string', 'description': 'The event\'s start time in hr:min:sec format'},
                             'end_time': {'type': 'string', 'description': 'The event\'s end time in hr:min:sec format, No need if type is numbered'},
-                            'range': {'type': 'list', 'description': 'The start date and end date of the recurring event,[start_date, end_date]. If user doesnt specify a end date, only put the start_date and leave end_date empty, [start_date]'},
+                            'range': {'type': 'list', 'description': 'The start date and end date of the recurring event, first index is always start_date and second index is end_date. If user doesnt specify a end date, only put first index start_date'},
                             'interval': {'type': 'integer', 'description': 'The number of units between occurrences, where units can be in days, weeks, months, or years, depending on the type parameter'},
                             'pattern_type': {'type':'string', 'enum':['daily', 'weekly', 'absoluteMonthly', 'absoluteYearly'], 'description': 'The type of reccurence the user wants'},
                             'end_type': {'type':'string', 'enum':['endDate', 'noEnd', 'numbered'], 'description': f'**IF the user wants to create event on multiple days in a week just for one week, use numbered and set numberofoccurrence to 1. If user has a date in mind which the recurrence should end, use endDate. Else if the user wants it to repeat a certain time, user numbered. Else if the user doesnt specify a date use noEnd.'},
@@ -196,20 +198,22 @@ def create_webview():
 def home():
     return render_template('chatbox.html')
 
+
+#Testing, new model : llama-3.1-70b-instruct	
 @app.route('/user_input', methods=['POST'])
 def user_input():
     global global_events
     user_content = request.form.get('user_input')
     if user_content:
         message.append({'role':'user', 'content': f'{user_content}'})
-        data = client.chat.completions.create(model="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", messages=message, tools=tools, tool_choice='auto')
+        data = client.chat.completions.create(model="llama-3.1-70b-instruct	", messages=message, tools=tools, tool_choice='auto')
         if data.choices[0].message.tool_calls:            
             for tool_call in data.choices[0].message.tool_calls:
                 arguments = loads(tool_call.function.arguments)
                 if tool_call.function.name == 'get_events':
                     events = get_events(arguments.get('start_date_time'), arguments.get('end_date_time'))
                     message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(events)})
-                    data = client.chat.completions.create(model="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", messages=message)
+                    data = client.chat.completions.create(model="llama-3.1-70b-instruct	", messages=message)
                     response = data.choices[0].message.content
                     return render_template('chatbox.html', ai_response=response)
                 elif tool_call.function.name == 'create_event':
@@ -235,7 +239,7 @@ def user_input():
                     message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
                     return render_template('chatbox.html', ai_response=response_code)
                 elif tool_call.function.name == 'Create_event_with_recurrence':
-                    response_code = Create_event_with_recurrence(
+                    response, response_code = Create_event_with_recurrence(
                     arguments.get('event_name'),
                     arguments.get('start_date'),
                     arguments.get('end_date'),
@@ -251,45 +255,59 @@ def user_input():
                     arguments.get('dayOfMonth'),
                     arguments.get('numberOfOccurrences')                      
                     )
-                    global_events += f"Event: Title = {response['subject']}, Time = {response['start']['dateTime']} - {response['end']['dateTime']}, Location = {response['location']['displayName']}, Event ID = {response['id']}\n"
-                    message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
                     
-                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
-                    return render_template('chatbox.html', ai_response = response_code)
+                    if response_code:
+                        response_code = response_code.json() 
+                        global_events += f"Event: Title = {arguments.get('event_name')}, Time = {str(arguments.get('start_date ')) + 'T' + str(arguments.get('start_time ')) }  - {str(arguments.get('end_date')) + 'T' + str(arguments.get('end_time'))}, Location = {arguments.get('location_name')}, Event ID = {response_code['id']}\n"
+                        message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
+                    
+                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response)})
+                    return render_template('chatbox.html', ai_response = response)
                 elif tool_call.function.name == 'get_categories':
                     categories = get_categories() 
                     message[3] = {'role': 'system', 'content': f'DONT READ BELOW unless trying to get the existing categories that the user has\n {categories}'}
-        data = client.chat.completions.create(model="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", messages=message)
+        data = client.chat.completions.create(model="llama-3.1-70b-instruct	", messages=message)
         response = data.choices[0].message.content
         return render_template('chatbox.html', ai_response=response)
     return render_template('chatbox.html')
 
+
+mic = False
+audio_data = None 
 @app.route('/voice',  methods=['POST'])
-def user_voice():
-    mic = False 
-    if request.json['action'] == 'button_clicked':
-        mic = not(mic) 
-
-    while mic:
-        text = ''
-        with sr.Microphone() as source:
-            print("Listening...")
-            audio = recognizer.listen(source)
-        try:
-            text = recognizer.recognize_google(audio)
-            print(f"You said: {text}")
-        except sr.UnknownValueError:
-            print("Sorry, I couldn't understand that.")
-        except sr.RequestError:
-            print("Sorry, there was an error processing your request.")
-        if not(text):
-            continue 
-        mic = False 
-    return jsonify({'response': text})
+async def user_voice():
+    global mic, audio_data
     
+    if request.json['action'] == 'button_clicked':
+        mic = True 
+    
+    if mic:
+        print('mic on')
+        while mic: #Toggle on mic to get raw audio data
+            audio_data = listen_audio()
+            mic = False
+    
+    if not(mic) and audio_data:
+        print('proccessing data')
+        try: #When mic is turned off, the raw data is processed 
+            text = recognizer.recognize_google(audio_data)
+            print(f"You said: {text}")
+        except:
+            print('error')
+            return jsonify({'response': 'AI instruction: say \'please repeat what you said \''})
         
+        audio_data = None 
+        return jsonify({'response': text})
+    
+    return jsonify({'response': ''})
 
 
+def listen_audio():
+    with sr.Microphone() as source:
+        print("Listening...")
+        audio = recognizer.listen(source)
+    return audio
+    
 
 async def run():
     global global_events
