@@ -11,7 +11,7 @@ import speech_recognition as sr
 app = Flask(__name__)
 client = OpenAI(
     base_url="https://api.perplexity.ai/chat/completions",
-    api_key='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'
+    api_key='OMITTED'
 )
 
 recognizer = sr.Recognizer()
