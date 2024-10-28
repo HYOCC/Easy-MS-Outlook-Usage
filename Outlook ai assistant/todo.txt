@@ -1,7 +1,12 @@
 
 -
 
+
+revamp whole system to use gemni ai API
+
+
 -Work on adding the todo function as well 
+
 
 -Make a toggle off and on for mic
 
@@ -10,3 +15,75 @@
 
 
 -Learn how ot use data base and create a log in system
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+                if tool_call.function.name == 'get_events':
+                    response = data.choices[0].message.content
+                    return render_template('chatbox.html', ai_response=response)
+                elif tool_call.function.name == 'create_event':
+                    response_code, response = create_event(
+                        arguments.get('event_name'),
+                        arguments.get('start_date'),
+                        arguments.get('end_date'),
+                        arguments.get('start_time'),
+                        arguments.get('end_time'),
+                        arguments.get('location_name'),
+                        arguments.get('categories')
+                    )
+                    response = response.json() 
+                    global_events += f"Event: Title = {response['subject']}, Time = {response['start']['dateTime']} - {response['end']['dateTime']}, Location = {response['location']['displayName']}, Event ID = {response['id']}\n"
+                    message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
+                    
+                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
+                    
+                    return render_template('chatbox.html', ai_response=response_code)
+                elif tool_call.function.name == 'delete_event':
+                    response_code = delete_event(arguments.get('id'))
+                    print(arguments.get('id'))
+                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
+                    return render_template('chatbox.html', ai_response=response_code)
+                elif tool_call.function.name == 'Create_event_with_recurrence':
+                    response, response_code = Create_event_with_recurrence(
+                    arguments.get('event_name'),
+                    arguments.get('start_date'),
+                    arguments.get('end_date'),
+                    arguments.get('start_time'),
+                    arguments.get('end_time'),
+                    arguments.get('range'),
+                    arguments.get('interval'),
+                    arguments.get('pattern_type'),
+                    arguments.get('end_type'),
+                    arguments.get('location_name'),
+                    arguments.get('categories'),
+                    arguments.get('daysOfWeek'),
+                    arguments.get('dayOfMonth'),
+                    arguments.get('numberOfOccurrences')                      
+                    )
+                    
+                    if response_code:
+                        response_code = response_code.json() 
+                        global_events += f"Event: Title = {arguments.get('event_name')}, Time = {str(arguments.get('start_date ')) + 'T' + str(arguments.get('start_time ')) }  - {str(arguments.get('end_date')) + 'T' + str(arguments.get('end_time'))}, Location = {arguments.get('location_name')}, Event ID = {response_code['id']}\n"
+                        message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
+                    
+                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response)})
+                    return render_template('chatbox.html', ai_response = response)
+                elif tool_call.function.name == 'get_categories':
+                    categories = get_categories() 
+                    message[3] = {'role': 'system', 'content': f'DONT READ BELOW unless trying to get the existing categories that the user has\n {categories}'}
+        data = client.chat.completions.create(model="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", messages=message)
+        response = data.choices[0].message.content
+        return render_template('chatbox.html', ai_response=response)
+    '''

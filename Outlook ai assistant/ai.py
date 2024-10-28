@@ -5,18 +5,71 @@ from flask import Flask, render_template, request, jsonify
 from asyncio import run as runs
 from get_data import run_data, create_event, delete_event, get_events, Create_event_with_recurrence, get_categories
 from datetime import datetime
-from json import loads, dumps
 import speech_recognition as sr
+import google.generativeai as genai
+import os
+from dotenv import load_dotenv
 
+#Starts flask application which allows integration of html data to python data and vice versa
 app = Flask(__name__)
-client = OpenAI(
-    base_url="https://api.perplexity.ai/chat/completions",
-    api_key='OMITTED'
-)
 
+#Sets up the configuration for GenAI Google
+default_ai_content = '''
+You are a calendar assistant AI that can access external functions. You also act like a butler for talking needs. The user might try and use voice so please respond accordingly 
+
+General: 
+1. Use military time (01:00:00 to 23:59:59) for system only
+2. Call only the necessary function based on the latest user message.
+3. Ask for clarification if user intent is unclear.
+4. Format output in readable HTML
+5. You can use more than one function
+6. CASE sensitive for functions. Dont uppercase the parameters except if told to do so
+
+Viewing events:
+-Use get_events function
+-each event should be its own line, put it into table/column for better readability. Order the events in chronological order
+-convert military time to AM/PM format
+-For specific dates, omit date in output
+-If no events, respond creatively
+-Omit event ID and seriesmasterID 
+-If the starting date/time is not specificed, ALWAYS go from the current date time 
+-Include what day of the week it is
+-Only show events that has not occured yet (dates and time that are bigger than current date and time)
+-Include location if applicable
+-If user wants all of their event, go from current time and date to next year
+
+Creating events: 
+-Use create_event function if user doesnt want the event to repeat. Use Create_event_with_recurrence if the user wants the event to repeat. 
+-Respond to various phrasings (e.g., "create an event", "add an event")
+-NEED specified time
+
+
+Deleting events:
+-get the event ID from a list of event that is given to you and always use the latest added one, the message starts with \'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\' and use delete_event function
+-If the user asks to remove a event that occurs every specific day, just get the id of the that event that pops up first and use that.
+-Require event name from user
+-If event doesn't exist, inform user before proceeding to delete the closest one named after it.
+-If event name is not provided, ask for clarification
+-Don't select events randomly
+-Response format:
+-For viewing: HTML only, no explanations
+'''
+#Loads the api_key from a secure file caclled APIKey.env and sets up the google AI configs
+load_dotenv('APIKey.env')
+genai.configure(api_key=os.getenv('google_api_key'))
+tool_config = {
+  "function_calling_config": {
+    "mode": "AUTO",
+  }
+}
+
+
+global_events = ''
+
+#Sets up the speech to text model
 recognizer = sr.Recognizer()
 recognizer.pause_threshold = 0.5
-
+#WIP for category functions
 category_colors = {
     "Red": "Preset0",
     "Orange": "Preset1",
@@ -45,54 +98,11 @@ category_colors = {
     "DarkCranberry": "Preset24"
 }
 
-global_events = ''
-
-default_ai_content = '''
-You are a calendar assistant AI that can access external functions. Your are like a butler
-
-General: 
-1. Use military time (01:00:00 to 23:59:59).
-2. Call only the necessary function based on the latest user message.
-3. Ask for clarification if user intent is unclear.
-4. Format output in readable HTML with white text and in fun font, dont change background color
-5. You can use more than one function
-
-DONT READ BELOW unless trying to view event
-Viewing events:
--DONT show events that already occurred
--For repeating events, only show the next upcoming event. repeating events are as specified, same time. ex. both are 2pm to 5pm, put the next upcoming one only
--Use get_events function
--Format in readable HTML, each event should be its own line, put it into table/column for better readability
--Use AM/PM format with date
--Present as a personal assistant/butler
--For specific dates, omit date in output
--If no events, respond creatively
--Omit event ID and seriesmasterID 
--For upcoming events, show from current date/time to the next 
--If the starting date/time is not specificed, ALWAYS go from the current date time 
--Include what day of the week it is
-
-DONT READ BELOW unless trying to add events
--Use create_event function if user doesnt want the event to repeat. Use Create_event_with_recurrence if the user wants the event to repeat. 
--Respond to various phrasings (e.g., "create an event", "add an event")
--NEED specified time
 
 
+ #To be deleted
 
-DONT READ BELOW unless trying to delete the event
-Deleting events:
--get the event ID from a list of event that is given to you and always use the latest added one, the message starts with \'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\' and use delete_event function
--If the user asks to remove a event that occurs every specific day, just get the id of the that event that pops up first and use that.
--Require event name from user
--If event doesn't exist, inform user before proceeding to delete the closest one named after it.
--If event name is not provided, ask for clarification
--Don't select events randomly
--Response format:
--For viewing: HTML only, no explanations
-'''
-
-message = [{'role': 'system', 'content': default_ai_content}, {'role': 'system', 'content': f'Today\'s date and time is: {datetime.now()} for reference (For AI to read)'}]
-
+#To be deleted
 tools = [
             {
                 'type': 'function',
@@ -193,82 +203,27 @@ def web_start():
 def create_webview():
     webview.create_window("Home", "http://127.0.0.1:5000/", fullscreen=True)
     webview.start()
-
+#Initial Website
 @app.route('/')
 def home():
     return render_template('chatbox.html')
-
-
-#Testing, new model : llama-3.1-70b-instruct	
+#When user sends a text
 @app.route('/user_input', methods=['POST'])
 def user_input():
-    global global_events
+    global global_events, chat, default_ai_content
     user_content = request.form.get('user_input')
     if user_content:
-        message.append({'role':'user', 'content': f'{user_content}'})
-        data = client.chat.completions.create(model="llama-3.1-70b-instruct	", messages=message, tools=tools, tool_choice='auto')
-        if data.choices[0].message.tool_calls:            
-            for tool_call in data.choices[0].message.tool_calls:
-                arguments = loads(tool_call.function.arguments)
-                if tool_call.function.name == 'get_events':
-                    events = get_events(arguments.get('start_date_time'), arguments.get('end_date_time'))
-                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(events)})
-                    data = client.chat.completions.create(model="llama-3.1-70b-instruct	", messages=message)
-                    response = data.choices[0].message.content
-                    return render_template('chatbox.html', ai_response=response)
-                elif tool_call.function.name == 'create_event':
-                    response_code, response = create_event(
-                        arguments.get('event_name'),
-                        arguments.get('start_date'),
-                        arguments.get('end_date'),
-                        arguments.get('start_time'),
-                        arguments.get('end_time'),
-                        arguments.get('location_name'),
-                        arguments.get('categories')
-                    )
-                    response = response.json() 
-                    global_events += f"Event: Title = {response['subject']}, Time = {response['start']['dateTime']} - {response['end']['dateTime']}, Location = {response['location']['displayName']}, Event ID = {response['id']}\n"
-                    message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
-                    
-                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
-                    
-                    return render_template('chatbox.html', ai_response=response_code)
-                elif tool_call.function.name == 'delete_event':
-                    response_code = delete_event(arguments.get('id'))
-                    print(arguments.get('id'))
-                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
-                    return render_template('chatbox.html', ai_response=response_code)
-                elif tool_call.function.name == 'Create_event_with_recurrence':
-                    response, response_code = Create_event_with_recurrence(
-                    arguments.get('event_name'),
-                    arguments.get('start_date'),
-                    arguments.get('end_date'),
-                    arguments.get('start_time'),
-                    arguments.get('end_time'),
-                    arguments.get('range'),
-                    arguments.get('interval'),
-                    arguments.get('pattern_type'),
-                    arguments.get('end_type'),
-                    arguments.get('location_name'),
-                    arguments.get('categories'),
-                    arguments.get('daysOfWeek'),
-                    arguments.get('dayOfMonth'),
-                    arguments.get('numberOfOccurrences')                      
-                    )
-                    
-                    if response_code:
-                        response_code = response_code.json() 
-                        global_events += f"Event: Title = {arguments.get('event_name')}, Time = {str(arguments.get('start_date ')) + 'T' + str(arguments.get('start_time ')) }  - {str(arguments.get('end_date')) + 'T' + str(arguments.get('end_time'))}, Location = {arguments.get('location_name')}, Event ID = {response_code['id']}\n"
-                        message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
-                    
-                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response)})
-                    return render_template('chatbox.html', ai_response = response)
-                elif tool_call.function.name == 'get_categories':
-                    categories = get_categories() 
-                    message[3] = {'role': 'system', 'content': f'DONT READ BELOW unless trying to get the existing categories that the user has\n {categories}'}
-        data = client.chat.completions.create(model="llama-3.1-70b-instruct	", messages=message)
-        response = data.choices[0].message.content
-        return render_template('chatbox.html', ai_response=response)
+        #Gets the currently existing event and category and feeds it to the bot
+        dt = datetime.now() 
+        global_events = get_events(None, None) 
+        categories = get_categories()
+        default_ai_content += f'DONT READ BELOW unless trying to get the existing categories that the user has\n {categories}\n' + f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}\n'
+        model = genai.GenerativeModel("gemini-1.5-pro", tools=[get_events, create_event, delete_event, Create_event_with_recurrence, get_categories],tool_config=tool_config,system_instruction=default_ai_content)
+        chat = model.start_chat(enable_automatic_function_calling=True)
+        #The message that is sent to the bot 
+        response = chat.send_message(f'Today\'s date and time is: {dt} for reference (For AI to read), week of day is {dt.strftime('%A')}\n' + user_content) 
+        
+        return render_template('chatbox.html', ai_response = response.text)
     return render_template('chatbox.html')
 
 
@@ -310,14 +265,14 @@ def listen_audio():
     
 
 async def run():
-    global global_events
-    await run_data()
-    global_events = get_events() 
-    message.append({'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'})
-    categories = get_categories()
-    message.append({'role': 'system', 'content':f'DONT READ BELOW unless trying to get the existing categories that the user has\n {categories}'})
+    global global_events, default_ai_content, chat 
+    await run_data() #Starts the authentication for microsoft account and gets the authorization key set up
+    
+    #Lets the website run in the background and starts it
     app_thread = threading.Thread(target=web_start)
     app_thread.start()
+    
+    #Creates the window of the website and presents 
     create_webview()
 
 if __name__ == "__main__":
