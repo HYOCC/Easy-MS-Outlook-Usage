@@ -4,7 +4,7 @@ from configparser import SectionProxy
 from azure.identity import  InteractiveBrowserCredential
 from msgraph import GraphServiceClient
 import configparser
-import asyncio 
+
 
 
 config = configparser.ConfigParser()
@@ -57,8 +57,6 @@ def get_events(start_date_time:str, end_date_time:str):
     Returns the set of event that is listed within the time frame and all their informations
     ''' 
     #Debuggging
-    print(start_date_time)
-    print(end_date_time)
     events = ''
     calendar_url_single = f'https://graph.microsoft.com/v1.0/me/events?$filter=type eq \'singleInstance\' and start/dateTime ge \'{start_date_time}\' and end/dateTime le \'{end_date_time}\'&$select=subject,start,end,location'
     calendar_url_series = f'https://graph.microsoft.com/v1.0/me/events?$filter=type eq \'seriesMaster\'&$select=subject'
@@ -95,7 +93,6 @@ def get_events(start_date_time:str, end_date_time:str):
             event_start_date_time = event['start']['dateTime']
             event_end_date_time = event['end']['dateTime']
             events += f"Event: Title = {event['subject']}, Event ID = {event['id']}\n"
-    print(events)
     return events 
     
     
@@ -112,9 +109,6 @@ def create_event(event_name:str, start_date:str, end_date:str, start_time:str, e
         location_name(optional): The event's location
         categories(optional): The event's category, look for existing category first if there is no existing category, tell the user to specify which further
         notes(optional): The event's description such as if user wants to add a little info regarding the event.
-        
-        Returns
-        None
         '''
         
         calendar_url = 'https://graph.microsoft.com/v1.0/me/events'
@@ -157,7 +151,6 @@ def delete_event(event_id:str):
     ARGS:
     event_id: The event id or event recurring ID
     
-    Returns None 
     '''
     url = f'https://graph.microsoft.com/v1.0/me/events/{event_id}'
     response = requests.delete(url, headers=headers)
@@ -184,8 +177,6 @@ def Create_event_with_recurrence(event_name:str, start_date:str, end_date:str, s
         notes: The event's description such as if user wants to add a little info regarding the event.
         numberOfOccurrences: If end_type is numbered, this is the number of times that the set of event repeat for.
         
-        returns 
-        None
         '''
         
         
@@ -236,10 +227,6 @@ def Create_event_with_recurrence(event_name:str, start_date:str, end_date:str, s
             request_body['body'] = {}
             request_body['body']['contentType'] = 'HTML'
             request_body['body']['content'] = f'{notes}'
-
-        #Testing 
-        print(request_body)
-        
         
         response = requests.post(calendar_url, json=request_body, headers=headers)
         
@@ -272,25 +259,96 @@ def get_categories():
     else:
         return 'Not successful'
 
-
+#Add a create category function
 #Testing to create categories 
-def create_categories(color, display_name):
+def create_categories(color:str, display_name:str):
+    '''
+    When a user wants to add a event to a unexisting category, create that category
+    
+    ARGS:
+    color: The preset of the color. 
+    display_name: The name for the category
+    
+    returns None 
+    '''
     global headers 
     Create_category_url = 'https://graph.microsoft.com/v1.0/me/outlook/masterCategories'
     body_type = {
-        'color' : color ,
+        'color' : color,
         'displayName': display_name 
     }
     
-    Response = requests.get(Create_category_url, headers = body_type)
+    #Recently changed 
+    Response = requests.get(Create_category_url, headers, body_type)
     
     if Response.status_code == 201:
         return 'Successful'
     return 'Not successful'
 
 
-#Add a create category function
- 
+#For Todo function of outlook 
+     
+def create_tasklist(displayName:str):
+    global headers
+    '''
+    Creates a todo category, for example a task lisk for life or homework etc 
+    
+    ARGS:
+    displayname: The name of the category
+    '''
+    
+    url = 'https://graph.microsoft.com/v1.0/me/todo/lists'
+    request_body = {
+        'displayName': displayName # The name of the task list
+    }
+    
+    response = requests.post(url=url, headers=headers, json=request_body)
+    
+    if response.status_code == 201:
+        print(f'Success in creating tasklist {displayName}')
+        return 'success'
+    else:
+        print('not successful, please ask the user to retry or specify condition that is needed') 
+        print(response.status_code)
+        return 'not successful'
+
+
+#Gets the info of the task lists
+def get_tasklist(name:str):
+    '''
+    Gets the tasklist information using the name off the tasklist
+    
+    ARGS:
+    name: the name of the tasklist 
+    
+    returns the id 
+    '''
+    url = 'https://graph.microsoft.com/v1.0/me/todo/lists'
+    
+    response = requests.get(url, headers=headers)
+    
+    tasklist = ''
+    
+    if response.status_code == 200:
+        data = response.json()
+        for item in data['value']:
+            if item['displayName'].lower() == name.lower():
+                tasklist += f'Tasklist Name: {item['displayName']}, Tasklist ID: {item['id']}\n'
+                
+        if not(tasklist):
+            print('nothing was found')
+            return 'nothing was found, let user try another word' 
+        
+        print(tasklist)
+        return f'Success\n{tasklist}'
+    else:
+        print('error')
+        return 'error'
+
+
+
+
+
 user = Account(azure_settings)
 
 async def run_data():
