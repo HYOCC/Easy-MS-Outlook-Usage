@@ -1,12 +1,17 @@
 import requests
-from datetime import datetime, timedelta 
-from configparser import SectionProxy
-from azure.identity import  InteractiveBrowserCredential
-from msgraph import GraphServiceClient
-import configparser
-from asyncio import run as runs
-import Auth.Microsoft_authy as MA 
+from datetime import datetime
+from Get_Data.Auth.Microsoft_authy import get_headers
 
+ 
+headers = '' 
+
+#Helper function to get the weekday of the date 
+def get_weekday(date_time):
+        date = datetime.fromisoformat(date_time).date()
+        weekday = date.strftime('%A')
+        return weekday   
+ 
+#Semi tested
 def create_tasklist(displayName:str):
     global headers
     '''
@@ -15,7 +20,9 @@ def create_tasklist(displayName:str):
     ARGS:
     displayname: The name of the category
     '''
-    
+    #If the user signed in and authenticates it, update header only once throughout this program
+    if not(headers):
+        headers = get_headers()
     url = 'https://graph.microsoft.com/v1.0/me/todo/lists'
     request_body = {
         'displayName': displayName # The name of the task list
@@ -31,8 +38,10 @@ def create_tasklist(displayName:str):
         print(response.status_code)
         return 'not successful'
 
-#Gets the info of the task lists
+
+#Semi tested
 def get_tasklist(name:str):
+    global headers
     '''
     Gets the tasklist information using the name off the tasklist
     
@@ -41,6 +50,9 @@ def get_tasklist(name:str):
     
     returns the id 
     '''
+    #If the user signed in and authenticates it, update header only once throughout this program
+    if not(headers):
+        headers = get_headers()
     url = 'https://graph.microsoft.com/v1.0/me/todo/lists'
     
     response = requests.get(url, headers=headers)
@@ -63,7 +75,9 @@ def get_tasklist(name:str):
         print('error')
         return 'error'
 
+#Not extensively tested
 def update_tasklist(id:str, update_display_name:str):
+    global headers
     '''
     updates the name of the tasklist
     
@@ -71,6 +85,9 @@ def update_tasklist(id:str, update_display_name:str):
     id: The id of the tasklist whose displayName the user wish to change 
     update_display_name: The new updated display name
     '''
+    #If the user signed in and authenticates it, update header only once throughout this program
+    if not(headers):
+        headers = get_headers()
     url = f'https://graph.microsoft.com/v1.0/me/todo/lists/{id}'
     
     request_body = {
@@ -93,12 +110,16 @@ def update_tasklist(id:str, update_display_name:str):
 
 #semi Test
 def delete_tasklist(id:str):
+    global headers
     '''
     Deletes the tasklist with their ID
     
     ARGS:
     tasklist_id: The id of the tasklist the user wish to delete
     '''
+    #If the user signed in and authenticates it, update header only once throughout this program
+    if not(headers):
+        headers = get_headers()
     url = f'https://graph.microsoft.com/v1.0/me/todo/lists/{id}'
     
     try:
@@ -113,29 +134,3 @@ def delete_tasklist(id:str):
     else:
         print('response_code error, delete_tasklist')
         return 'error in response_code, delete_tasklist'
-
-#Creating
-def create_to_do(tasklist_id:str, To_Do_task:str):
-    '''
-    Creates a to do task for the tasklist using the ID 
-    
-    ARGS:
-    tasklist_id: The id of the tasklisk in which the todo list will be created under
-    '''
-    
-    url = f'https://graph.microsoft.com/v1.0/me/todo/lists/{tasklist_id}/tasks'
-    
-    
-    
-#Testing to make model faster
-def update_system_instruction(instruction:str):
-    pass 
-
-
-
-async def main():
-    global headers 
-    user = MA.Account(MA.azure_settings)
-    headers = await user.get_user_token()
-
-runs(main())

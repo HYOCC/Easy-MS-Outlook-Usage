@@ -6,6 +6,10 @@ Created a create category function - Done - Not exclusively Test
 
 Work on adding the todo system for outlook - In progress
 
+Workn on updating already existing event - Done- not tested 
+
+Make the system more efficient by having the ai call a function that updates their system instruction base on what the user need
+
 Make a toggle off and on for mic
 
 Learn how ot use data base and create a log in system

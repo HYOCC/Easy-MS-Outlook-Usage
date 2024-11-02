@@ -96,17 +96,46 @@ print(response.text)
 
 '''
 
+
+"""
 #Changing the danger settingn 
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
+#TESTING dictionary with ai - WORKS 
+dict = {
+    'OpenLight': 'code1',
+    'CloseLight': 'code2'
+}
 
+def updating_light(code:str):
+    '''
+    Updates the light
+    
+    ARGS:
+    code: The string that the user want
+    '''
+    if code == 'code1':
+        print('OPENLIGHT BOMBA')
+        return 'success'
 
+    if code == 'code2':
+        print('CloseLight')
+        return 'success'
+    
+    return 'non_sucess'
 
-model = genai.GenerativeModel("gemini-1.5-pro", safety_settings={HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+model = genai.GenerativeModel("gemini-1.5-pro", tools=[updating_light] ,safety_settings={HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
         HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE}, system_instruction='You are an NPC in a FPS GAME',)
-chat = model.start_chat()
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE}, system_instruction=f'{dict}\n If the user wants to open the light, from the dictionary get the value from it. Same thing for closing the light')
+chat = model.start_chat(enable_automatic_function_calling=True)
 
-response = chat.send_message('SHOOOT THEM')
-print(response.text )
+response = chat.send_message('Hi, open the light')
+print(response.text)
+"""
+
+
+for model_info in genai.list_tuned_models():
+    print(model_info.name)
+else:
+    print('printing model info for fine tuning')
