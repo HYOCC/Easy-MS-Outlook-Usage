@@ -1,0 +1,185 @@
+
+
+revamp whole system to use gemni ai API - Done -Tested
+
+Created a create category function - Done - Not exclusively Test 
+
+Work on adding the todo system for outlook - In progress
+
+Workn on updating already existing event - Done- not tested 
+
+Make the system more efficient by having the ai call a function that updates their system instruction base on what the user need
+
+Make a toggle off and on for mic
+
+Learn how ot use data base and create a log in system
+
+port to mobile
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+                if tool_call.function.name == 'get_events':
+                    response = data.choices[0].message.content
+                    return render_template('chatbox.html', ai_response=response)
+                elif tool_call.function.name == 'create_event':
+                    response_code, response = create_event(
+                        arguments.get('event_name'),
+                        arguments.get('start_date'),
+                        arguments.get('end_date'),
+                        arguments.get('start_time'),
+                        arguments.get('end_time'),
+                        arguments.get('location_name'),
+                        arguments.get('categories')
+                    )
+                    response = response.json() 
+                    global_events += f"Event: Title = {response['subject']}, Time = {response['start']['dateTime']} - {response['end']['dateTime']}, Location = {response['location']['displayName']}, Event ID = {response['id']}\n"
+                    message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
+                    
+                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
+                    
+                    return render_template('chatbox.html', ai_response=response_code)
+                elif tool_call.function.name == 'delete_event':
+                    response_code = delete_event(arguments.get('id'))
+                    print(arguments.get('id'))
+                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response_code)})
+                    return render_template('chatbox.html', ai_response=response_code)
+                elif tool_call.function.name == 'Create_event_with_recurrence':
+                    response, response_code = Create_event_with_recurrence(
+                    arguments.get('event_name'),
+                    arguments.get('start_date'),
+                    arguments.get('end_date'),
+                    arguments.get('start_time'),
+                    arguments.get('end_time'),
+                    arguments.get('range'),
+                    arguments.get('interval'),
+                    arguments.get('pattern_type'),
+                    arguments.get('end_type'),
+                    arguments.get('location_name'),
+                    arguments.get('categories'),
+                    arguments.get('daysOfWeek'),
+                    arguments.get('dayOfMonth'),
+                    arguments.get('numberOfOccurrences')                      
+                    )
+                    
+                    if response_code:
+                        response_code = response_code.json() 
+                        global_events += f"Event: Title = {arguments.get('event_name')}, Time = {str(arguments.get('start_date ')) + 'T' + str(arguments.get('start_time ')) }  - {str(arguments.get('end_date')) + 'T' + str(arguments.get('end_time'))}, Location = {arguments.get('location_name')}, Event ID = {response_code['id']}\n"
+                        message[2] = {'role': 'system', 'content': f'DONT READ BELOW UNLESS TRYING TO DELETE EVENTS\n {global_events}'}
+                    
+                    message.append({"tool_call_id": tool_call.id, "role": "tool", "name": tool_call.function.name, "content": dumps(response)})
+                    return render_template('chatbox.html', ai_response = response)
+                elif tool_call.function.name == 'get_categories':
+                    categories = get_categories() 
+                    message[3] = {'role': 'system', 'content': f'DONT READ BELOW unless trying to get the existing categories that the user has\n {categories}'}
+        data = client.chat.completions.create(model="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", messages=message)
+        response = data.choices[0].message.content
+        return render_template('chatbox.html', ai_response=response)
+    '''
+
+
+
+
+tools = [
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'create_event',
+                    'description': 'Create the event(s) in the Outlook calendar. Call this whenever the user requests an event to be added/created',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'event_name': {'type': 'string', 'description': 'The event\'s name'},
+                            'start_date': {'type': 'string', 'description': 'The event\'s start date in year-month-date format'},
+                            'end_date': {'type': 'string', 'description': 'The event\'s end date in year-month-date format'},
+                            'start_time': {'type': 'string', 'description': 'The event\'s start time in hr:min:sec format'},
+                            'end_time': {'type': 'string', 'description': 'The event\'s end time in hr:min:sec format'},
+                            'location_name': {'type': 'string', 'description': 'The event\'s location'},
+                            'categories': {'type': 'string', 'description': f'The event\'s category, look for existing category first if there is no existing category, tell the user to specify which further'},
+                            'notes': {'type':'string', 'description': 'The event\'s description such as if user wants to add a little info regarding the event.'}
+                        },
+                        'required': ['event_name', 'start_date', 'end_date', 'start_time', 'end_time']
+                    }
+                }
+            },
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'delete_event',
+                    'description': 'Deletes an event by using the \'Event ID\' or \'event recurring ID\'',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'string', 'description': 'The event id or event recurring ID'},
+                        },
+                        'required': ['id']
+                    }
+                }
+            },
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'get_events',
+                    'description': 'Gets all the events in the specified time frame',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'start_date_time': {'type': 'string', 'description': 'The user specified starting time in the format of year-month-dayTmilitaryHour:minutes:seconds'},
+                            'end_date_time': {'type': 'string', 'description': 'The user specified end time frame in the format of year-month-dayTmilitaryHour:minutes:seconds'}
+                        },
+                        'required': ['start_date_time', 'end_date_time']
+                    }
+                }
+            },
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'Create_event_with_recurrence',
+                    'description': 'Creates an event with the events reccuring either weekly or monthly',
+                    'parameters':{
+                        'type': 'object',
+                        'properties': {
+                            'event_name': {'type': 'string', 'description': 'The event\'s name'},
+                            'start_date': {'type': 'string', 'description': 'The event\'s start date in year-month-date format'},
+                            'end_date': {'type': 'string', 'description': 'The event\'s end date in year-month-date format.'},
+                            'start_time': {'type': 'string', 'description': 'The event\'s start time in hr:min:sec format'},
+                            'end_time': {'type': 'string', 'description': 'The event\'s end time in hr:min:sec format, No need if type is numbered'},
+                            'range': {'type': 'list', 'description': 'The start date and end date of the recurring event, first index is always start_date and second index is end_date. If user doesnt specify a end date, only put first index start_date'},
+                            'interval': {'type': 'integer', 'description': 'The number of units between occurrences, where units can be in days, weeks, months, or years, depending on the type parameter'},
+                            'pattern_type': {'type':'string', 'enum':['daily', 'weekly', 'absoluteMonthly', 'absoluteYearly'], 'description': 'The type of reccurence the user wants'},
+                            'end_type': {'type':'string', 'enum':['endDate', 'noEnd', 'numbered'], 'description': f'**IF the user wants to create event on multiple days in a week just for one week, use numbered and set numberofoccurrence to 1. If user has a date in mind which the recurrence should end, use endDate. Else if the user wants it to repeat a certain time, user numbered. Else if the user doesnt specify a date use noEnd.'},
+                            'daysOfWeek': {'type':'list', 'enum':['monday','tuesday','wednesday','thursday','friday','saturday','sunday'], 'description': 'The day of the week that the user wants the event to be repeated on if the type parameter is weekly, if none are specified, assume the day is the current day. It can be multiple days, format it into [], ex. [\'monday\', \'tuestday\'], [\'monday\']'},
+                            'dayOfMonth': {'type':'integer', 'description': 'The day of the month that the user wants the event to be repeated on, if none are specified, assume its the current date'},
+                            'location_name': {'type': 'string', 'description': 'The event\'s location'},
+                            'categories': {'type': 'string', 'description': 'The event\'s category, such as School events, club events etc.'},
+                            'notes': {'type':'string', 'description': 'The event\'s description such as if user wants to add a little info regarding the event.'},
+                            'numberOfOccurrences': {'type': 'integer', 'description': 'If end_type is numbered, this is the number of times that the set of event repeat for.'}
+                        },
+                        'required': ['event_name', 'start_date', 'start_time', 'end_date', 'end_time', 'range', 'pattern_type', 'end_type']
+                    }
+                }
+            },
+            {
+                'type': 'function',
+                'function': {
+                    'name': 'get_categories',
+                    'description': 'Gets all of the existing categories information such as name, color and id',
+                    'parameters':{
+                        'type': 'object',
+                        'properties': {},
+                        'required': [] 
+                    }
+                }
+            }
+        ]

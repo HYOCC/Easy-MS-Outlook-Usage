@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <style>
+        body{
+            height: 100%;
+            width: 100%;
+            background-color: rgb(39, 61, 92);
+            overflow-x: hidden;
+        }
+        .chatbox{
+            display: grid;  
+            grid-template-columns: repeat(2, 1fr);
+            grid-auto-rows: minmax(25px, auto);
+            position: fixed;
+            right: 50%;
+            bottom: 0;
+            transform: translate(50%, 0);
+        }
+
+        .response_box{
+            color: white;
+            font-family: sans-serif Arial, Helvetica, sans-serif;
+            font-size: 20px;
+        }
+
+        #chat_text{
+            border-radius: 5px;
+            border-bottom-right-radius: 0px;
+            border-bottom-left-radius: 0px;
+            border-width: 1;
+            border-color: lightgrey;
+            width: 750px;
+            height: 30px;
+            background-color: rgb(33, 38, 43, 1);
+            color:  rgb(132, 150, 173, 1);/* Change the font color */
+            
+        }
+        
+        #send_button{
+            border-radius: 5px;
+            border-bottom-right-radius: 0px;
+            border-bottom-left-radius: 0px;
+            border-width: 1;
+            border-color: lightgrey;
+            background-color: rgb(33, 38, 43, 1);
+            width: 100px;
+            height: 35px;
+            color: grey;
+        }
+
+        .response_box{
+            background-color: rgb(90, 108, 133, 1);
+            position: absolute;
+            left:50%;
+            transform: translate(-50%,0);
+            width: 850px;
+            height: 100vh;
+            border-radius: 5px;
+            
+
+        }
+
+
+    </style>
+</head>
+<body>
+    <button type="button" id = 'mic_on_off' style='position:absolute'>mic</button>
+ 
+
+
+    <div class = 'response_box'>
+        <p> {{ai_response | safe}} </p>
+    </div>
+    <div class = 'chatbox'>   
+        <input type="text" id = 'chat_text' placeholder="Ask AI"> 
+        <form id = 'send' action = '/user_input' method="POST">
+            <input type="hidden" id="user_input" name="user_input">
+            <button id = 'send_button'>Submit</button> 
+        </form>
+    </div>
+</body>
+<script src = 'jquery-3.7.1.js'></script>
+
+<script>
+    document.getElementById('chat_text').addEventListener('keyup', function(event){
+        if (event.key == 'Enter') {
+            document.getElementById('chat_text').readOnly = true;
+            document.getElementById('send_button').click();
+        }
+    })
+
+    document.getElementById('send_button').addEventListener('click', function() {
+        document.getElementById('user_input').value = document.getElementById('chat_text').value 
+        document.getElementById('send').submit() 
+    });
+
+    
+    // Use fetch API to get the info that mic has been pressed without the page refreshing 
+    document.getElementById('mic_on_off').addEventListener('click', function(){
+        fetch('/voice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({action: 'button_clicked'})
+        })
+        .then(response => response.json())
+        .then(data =>{
+            document.getElementById('chat_text').value = data.response;
+            document.getElementById('send_button').click();
+        })
+    })
+
+</script>
+</html>
+
