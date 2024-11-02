@@ -2,7 +2,7 @@
 import google.generativeai as genai
 from datetime import datetime
 
-genai.configure(api_key='AIzaSyCTjG0mDHd0GYgjCfMVB6qWFRtSEwgYAxg')
+genai.configure(api_key='')
 
 '''
 #Default testing, function testing 
