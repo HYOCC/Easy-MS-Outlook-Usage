@@ -1,4 +1,4 @@
-# Outlook-chat-AI
+#Microsoft-Outlook-ToDo-Assistant
 
 -To Run
    
