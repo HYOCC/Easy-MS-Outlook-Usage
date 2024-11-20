@@ -1,0 +1,47 @@
+
+performance related: 
+
+
+Features:
+
+-Implement microphone function, which inlucdes capturing voice and processing it to the bot
+
+-add gerald to html and replace chat box and add to gerald a smaller audio visualizor that is a indicator of user voice and the bigger one will be the voice that 'gerald' out puts to the user
+
+-Learn how ot use data base and create a log in system
+
+-update UI 
+
+- use Micrsofot delta queries for faster and more efficient process. This tracks all of the
+changed event and allows for global_events to be updated frequently but only with the changes.
+This gives the AI the latest changes to each update, delete or addition of event isntead of
+using the get event on every second time a funciton is executed
+
+
+Testing reports:
+
+
+
+~TESTED~
+Getting event - good
+Deleting events - good 
+updating single instance events - good
+deleting recurrence - good
+creating recurrent - good
+assinging categories - good
+updating categories - good
+deleting categories - good 
+creating categories - good 
+updating reccurence event - good
+udpate tasklist - good
+get tasklist - good 
+create tasklist - good
+deleting tasklist - good
+getting task in tasklist - good 
+update_task_in_tasklist - kind of tested 
+create_task_in_tasklist - good but needs fine tuning for ai to recoginize implict tasklists. like saying add written 5 homework means under tasklist of homework and not the name written 5 homework.
+
+~Not tested~
+
+
+

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Visualizer with Speech Recognition</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: black;
+        }
+        canvas {
+            border: 2px solid white;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #transcript {
+            margin-top: 20px;
+            color: white;
+            font-size: 18px;
+            width: 500px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas for visualizing audio -->
+    <canvas id="visualizer" width="500" height="500"></canvas>
+
+    <!-- Buttons to start and stop microphone listening -->
+    <button id="startButton">Start Listening</button>
+    <button id="stopButton" disabled>Stop Listening</button>
+
+    <!-- Div to display recognized speech -->
+    <div id="transcript">Transcript will appear here...</div>
+
+    <script>
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        let audioContext = null; // Initialize as null, will be created on button click
+        let analyser = null;
+        let stream = null; // Store the MediaStream object
+        let recognition = null; // For speech recognition
+
+        // Button elements
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const transcriptDiv = document.getElementById('transcript');
+
+        // Check if browser supports Web Speech API
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // Keep listening even after pauses
+            recognition.interimResults = true; // Show interim results before finalizing
+            recognition.lang = 'en-US'; // Set language
+
+            // Event listener for the "Start Listening" button
+            startButton.addEventListener('click', () => {
+                if (!audioContext) {
+                    // Create AudioContext only when the button is clicked
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 1024;
+
+                    // Get access to the microphone
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(mediaStream => {
+                            stream = mediaStream; // Save the stream so we can stop it later
+                            const source = audioContext.createMediaStreamSource(stream);
+                            source.connect(analyser);
+
+                            visualize(); // Start visualizing once mic access is granted
+
+                            // Start speech recognition
+                            recognition.start();
+
+                            // Disable start button and enable stop button
+                            startButton.disabled = true;
+                            stopButton.disabled = false;
+                            startButton.textContent = "Listening...";
+                        })
+                        .catch(err => {
+                            console.error('Error accessing microphone:', err);
+                        });
+                }
+            });
+
+            // Event listener for the "Stop Listening" button
+            stopButton.addEventListener('click', () => {
+                if (stream) {
+                    // Stop all tracks in the stream to turn off the microphone
+                    stream.getTracks().forEach(track => track.stop());
+
+                    // Stop speech recognition
+                    recognition.stop();
+
+                    // Reset buttons and disable visualization
+                    startButton.disabled = false;
+                    stopButton.disabled = true;
+                    startButton.textContent = "Start Listening";
+
+                    // Optionally, clear the canvas once stopped
+                    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+                    stream = null;
+                    audioContext = null;
+                    
+                    transcriptDiv.value = transcriptDiv.textContent; 
+                }
+
+                // Use fetch API to get the info that mic has been pressed without the page refreshing 
+                    fetch('/gerald', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({action: transcriptDiv.value})
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Response from server:', data);
+                        transcriptDiv.textContent = data.ai_message;
+                    })
+                    .catch(error => console.error('Error:', error));
+            });
+
+            // Function to draw the waveform
+            function visualize() {
+                const bufferLength = analyser.frequencyBinCount; // Half of fftSize
+                const dataArray = new Uint8Array(bufferLength);
+
+                function draw() {
+                    if (!stream || !stream.active) return; // Stop drawing if stream is stopped
+
+                    requestAnimationFrame(draw);
+
+                    analyser.getByteTimeDomainData(dataArray);
+
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+                    ctx.lineWidth = 2;
+
+                    let red = Math.floor(Math.random() * 255);
+                    let green = Math.floor(Math.random() * 255);
+                    let blue = Math.floor(Math.random() * 255);
+                    
+                    ctx.strokeStyle = `rgb(${red}, ${green}, ${blue})`; // Random color for each frame
+
+                    ctx.beginPath();
+
+                    let sliceWidth = WIDTH * 1.0 / bufferLength;
+                    let x = 0;
+
+                    for (let i = 0; i < bufferLength; i++) {
+                        let v = dataArray[i] / 128.0; // Normalize between -1 and 1
+                        let y = v * HEIGHT / 2;
+
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+
+                        x += sliceWidth;
+                    }
+
+                    ctx.lineTo(WIDTH, HEIGHT / 2);
+                    ctx.stroke();
+                }
+
+                draw();
+            }
+
+            // Handle recognized speech result
+            recognition.onresult = (event) => {
+                let transcriptText = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    transcriptText += event.results[i][0].transcript + ' ';
+                }
+                transcriptDiv.textContent = transcriptText.trim(); // Display transcribed text
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech Recognition Error:', event.error);
+            };
+
+        } else {
+            alert("Your browser does not support speech recognition.");
+        }
+
+    </script>
+
+</body>
+</html>
