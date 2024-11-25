@@ -30,6 +30,15 @@
             width: 500px;
             text-align: center;
         }
+
+        #chatbox{
+            position: absolute;
+            height: 250px;
+            width: 400px;
+            color:grey;     
+            background-color: transparent;
+            left: 50px;
+        }
     </style>
 </head>
 <body>
@@ -42,7 +51,12 @@
     <button id="stopButton" disabled>Stop Listening</button>
 
     <!-- Div to display recognized speech -->
-    <div id="transcript">Transcript will appear here...</div>
+    <div id="transcript">Transcript will appear here...</div>   
+
+    <div id="chatbox">
+            <input type="text" id="user_input" name="user_input" style="background-color: grey;">
+            <button id="chatbox_submit" >Submit  
+    </div>
 
     <script>
         const canvas = document.getElementById('visualizer');
@@ -59,6 +73,8 @@
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const transcriptDiv = document.getElementById('transcript');
+        const chatButton = document.getElementById('chatbox_submit');
+        const chatBox = document.getElementById('user_input');
 
         // Check if browser supports Web Speech API
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -68,7 +84,7 @@
             recognition.continuous = true; // Keep listening even after pauses
             recognition.interimResults = true; // Show interim results before finalizing
             recognition.lang = 'en-US'; // Set language
-
+            
             // Event listener for the "Start Listening" button
             startButton.addEventListener('click', () => {
                 if (!audioContext) {
@@ -76,7 +92,6 @@
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     analyser = audioContext.createAnalyser();
                     analyser.fftSize = 1024;
-
                     // Get access to the microphone
                     navigator.mediaDevices.getUserMedia({ audio: true })
                         .then(mediaStream => {
@@ -84,7 +99,8 @@
                             const source = audioContext.createMediaStreamSource(stream);
                             source.connect(analyser);
 
-                            visualize(); // Start visualizing once mic access is granted
+
+                            visualize();
 
                             // Start speech recognition
                             recognition.start();
@@ -117,7 +133,6 @@
                     // Optionally, clear the canvas once stopped
                     ctx.clearRect(0, 0, WIDTH, HEIGHT);
                     stream = null;
-                    audioContext = null;
                     
                     transcriptDiv.value = transcriptDiv.textContent; 
                 }
@@ -133,19 +148,67 @@
                     .then(response => response.json())
                     .then(data => {
                         console.log('Response from server:', data);
+                        const audio = new Audio(`/static/output.wav?timestamp=${new Date().getTime()}`);
+
+                        
+                        const source = audioContext.createMediaElementSource(audio);
+                        source.connect(analyser);
+                        analyser.connect(audioContext.destination);
+                        audio.play(); // Play the audio
+                        visualize(true); // Visualize AI response in red color
+                        
+                        audio.onended = () => {
+                            audioContext = null; // Reset audio context
+                            stream = null; // Reset stream
+                        };
+                        
                         transcriptDiv.textContent = data.ai_message;
                     })
-                    .catch(error => console.error('Error:', error));
+                    .catch(error => console.error('Error:', error));     
             });
+            
+            chatButton.addEventListener('click', ()=>{
+                // Use fetch API to get the info that mic has been pressed without the page refreshing 
+                fetch('/gerald', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({action: chatBox.value})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Response from server:', data);
 
+                    // Create AudioContext only when the button is clicked
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 1024;
+
+                    const audio = new Audio(`/static/output.wav?timestamp=${new Date().getTime()}`);
+                    const source = audioContext.createMediaElementSource(audio);
+                    source.connect(analyser);
+                    analyser.connect(audioContext.destination);
+                    audio.play(); // Play the audio
+                    visualize(true); // Visualize AI response in red color
+                    
+                    audio.onended = () => {
+                        audioContext = null; // Reset audio context
+                    };
+                    
+                    transcriptDiv.textContent = data.ai_message;
+                })
+                .catch(error => console.error('Error:', error));
+
+            });
+            
             // Function to draw the waveform
-            function visualize() {
+            function visualize(ai = false) {
                 const bufferLength = analyser.frequencyBinCount; // Half of fftSize
                 const dataArray = new Uint8Array(bufferLength);
 
                 function draw() {
-                    if (!stream || !stream.active) return; // Stop drawing if stream is stopped
-
+                
                     requestAnimationFrame(draw);
 
                     analyser.getByteTimeDomainData(dataArray);
@@ -159,10 +222,13 @@
                     let green = Math.floor(Math.random() * 255);
                     let blue = Math.floor(Math.random() * 255);
                     
-                    ctx.strokeStyle = `rgb(${red}, ${green}, ${blue})`; // Random color for each frame
-
+                    if (ai == true) {
+                        ctx.strokeStyle = 'rgb(255, 0, 0)'; // Red color for AI response
+                    }
+                    else {
+                        ctx.strokeStyle = `rgb(${red}, ${green}, ${blue})`; // Random color for each frame
+                    }
                     ctx.beginPath();
-
                     let sliceWidth = WIDTH * 1.0 / bufferLength;
                     let x = 0;
 

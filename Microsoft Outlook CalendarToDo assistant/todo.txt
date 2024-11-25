@@ -4,13 +4,9 @@ performance related:
 
 Features:
 
--Implement microphone function, which inlucdes capturing voice and processing it to the bot
-
--add gerald to html and replace chat box and add to gerald a smaller audio visualizor that is a indicator of user voice and the bigger one will be the voice that 'gerald' out puts to the user
-
--Learn how ot use data base and create a log in system
-
--update UI 
+-Use facial recognization combined with sql database that is connected with the Name and with their microsoft authorization code which gains the access
+ -step by step 
+    -Learn camera usage first
 
 - use Micrsofot delta queries for faster and more efficient process. This tracks all of the
 changed event and allows for global_events to be updated frequently but only with the changes.
@@ -41,7 +37,9 @@ getting task in tasklist - good
 update_task_in_tasklist - kind of tested 
 create_task_in_tasklist - good but needs fine tuning for ai to recoginize implict tasklists. like saying add written 5 homework means under tasklist of homework and not the name written 5 homework.
 
-~Not tested~
 
+
+~Not tested~
+infinite login - without the need to keep signing in. Keep eye, if sign in happens again, make sure you are getting refresh tokens which shoudl las tup to 14 days as long as its been used
 
 

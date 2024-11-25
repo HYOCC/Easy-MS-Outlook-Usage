@@ -82,7 +82,7 @@ def get_single_event_id(start_date_time:str, end_date_time:str):
 def get_events(start_date_time:str, end_date_time:str):
     global headers 
     '''
-    Gets all the events in the specified time frame.
+    Gets all the events in the specified time frame for displaying to user ONLY. Not for getting the ID to delete the events
     
     If the starting date/time is not specificed, ALWAYS go from the current date time.
     If user wants all of their event, go from current time and date to next month 
@@ -128,7 +128,6 @@ def get_events(start_date_time:str, end_date_time:str):
                 
                 current_addition = f"Event: Title = {event['subject']}, Time = {event_start_date_time} {get_weekday(event_start_date_time)} - {event_end_date_time} {get_weekday(event_end_date_time)}, Location = {event['location']['displayName']}, ID = {event['id']}"
                 current_addition_converted = convert_event_to_time(current_addition)
-                print(current_addition_converted) #Logging
                 
                 while i > 0 and current_addition_converted < convert_event_to_time(event_list[i - 1]):
                     i -= 1
@@ -136,7 +135,7 @@ def get_events(start_date_time:str, end_date_time:str):
     else:
         print('Error in get_events')
         return 'Error in get_events'
-    print(event_list)#Logging
+    print(event_list)
     return event_list
     
     

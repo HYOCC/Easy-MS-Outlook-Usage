@@ -1,4 +1,3 @@
-from openai import OpenAI
 import webview
 import threading
 from flask import Flask, render_template, request, jsonify
@@ -8,6 +7,8 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 import os
 from dotenv import load_dotenv
+from google.cloud import texttospeech
+import wave
 
 import Get_Data.Auth.Microsoft_authy as Authy 
 from Get_Data.Calendar import create_event, delete_event, get_events, create_categories, Create_event_with_recurrence, get_categories, update_event_with_recurrence, update_event, delete_categories, get_recurring_event_id, get_single_event_id
@@ -20,13 +21,20 @@ Calendar_tool = [create_event, delete_event, get_events, create_categories, Crea
 Tasklist_tool = [create_tasklist, get_tasklist, update_tasklist, delete_tasklist]
 Tasklist_todo_tool = [get_task_in_tasklist, create_task_in_tasklist, update_task_in_tasklist]
 
+#Initializes text to speech client with the voice using pygame 
+text_speech_client = texttospeech.TextToSpeechClient()
+voice = texttospeech.VoiceSelectionParams(
+    language_code="en-US", ssml_gender=texttospeech.SsmlVoiceGender.FEMALE, name="en-US-Journey-F"
+)
+audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.LINEAR16)
+
 
 #Starts flask application which allows integration of html data to python data and vice versa
 app = Flask(__name__)
 
 #Sets up the configuration for GenAI Google
 default_ai_content = f'''
-You are a calendar/TO DO task assistant that can access external functions. You also act like a butler for talking needs. The user might try and use voice so please respond accordingly. You are talking to the user directly through voice. Your name is Gill.
+You are a calendar/TO DO task assistant that can access external functions. You also act like a butler for talking needs. The user might try and use voice so please respond accordingly. You are talking to the user directly through voice. Your name is Gill. Talk like you are Gerald the ai assitant in iron man. My name is Oscar, address me as such
 Current date is {date.today()}, {date.today().strftime("%A")}
 
 General Rule: 
@@ -79,34 +87,53 @@ def home():
 #When user sends a text
 @app.route('/user_input', methods=['POST'])
 def user_input():
-    global chat
+    global chat, voice, audio_config
     user_content = request.form.get('user_input')
     if user_content:
         #Gets the currently existing event and category and feeds it to the bot
         dt = datetime.now().strftime("%I:%M%p") 
         #The message that is sent to the bot 
         response  = chat.send_message(f'Current time is: {dt}\n' + user_content)
-        
+    
+
         return render_template('chatbox.html', ai_response = response.text)
     return render_template('chatbox.html')
 
-@app.route('/voice', methods=['POST'])
-def voice():
-    user_voice() 
+
     
 @app.route('/gerald', methods=['POST'])
 def gerald_voice():
-    global chat
+    global chat, text_speech_client, voice, audio_config
     data = request.get_json()['action']
-
-    
+     #Stops any media player that is opened right now
     if data:
+        
         #Gets the currently existing event and category and feeds it to the bot
         dt = datetime.now().strftime("%I:%M%p") 
         #The message that is sent to the bot 
         response  = chat.send_message(f'Current time is: {dt}\n' + data)
+        #Converts the text into ai synthesis text 
+        synthesis_input = texttospeech.SynthesisInput(text=response.text)
+        #Creates the voice response in binary audio form
+        voice_response = text_speech_client.synthesize_speech(input=synthesis_input, voice=voice, audio_config=audio_config)
+
+        #Output.mp3 as file, rewrite the content with the audio content within voice_response
+        output_file = "static/output.wav"
         
-        
+        if os.path.exists(output_file):
+            os.remove(output_file)
+        # Assuming `voice_response.audio_content` contains raw LINEAR16 PCM data
+        with wave.open(output_file, "wb") as wav_file:
+            # Set WAV file parameters
+            wav_file.setnchannels(1)  # Mono audio
+            wav_file.setsampwidth(2)  # 2 bytes per sample (16-bit audio)
+            wav_file.setframerate(25000)  # Example sample rate (adjust if needed)
+
+            # Write the raw audio content to the WAV file
+            wav_file.writeframes(voice_response.audio_content)
+
+        print(f"Audio content written to file '{output_file}'")
+            
         return jsonify({'ai_message': response.text})
         
         return render_template('gerald.html', ai_response = response.text)
