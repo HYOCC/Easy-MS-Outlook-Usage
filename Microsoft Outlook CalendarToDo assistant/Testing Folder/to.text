@@ -1,5 +1,0 @@
-Gerald
-
--use pyaudio to record, add on and off function, when off is pressed, audio is proccessed using speech recognization.
--Make gerald but its in html and website to seamlessly send date from the html to backend which is the python which gets processsed by the Ai insetad of text
--Use fetch in html like before to get audio to python, search to make sure audio can be transformed to wav form for speech to text process using speech revoginzation 
